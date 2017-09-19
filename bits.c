@@ -172,7 +172,11 @@ NOTES:
  *   Rating: 1
  */
 int bitAnd(int x, int y) {
-  return 2;
+  /**
+   * x & y = ~(~(x & y)) = ~(~x | ~y)
+   */
+
+  return ~(~x | ~y);
 }
 /* 
  * leastBitPos - return a mask that marks the position of the
@@ -180,10 +184,16 @@ int bitAnd(int x, int y) {
  *   Example: leastBitPos(96) = 0x20
  *   Legal ops: ! ~ & ^ | + << >>
  *   Max ops: 6
- *   Rating: 2 
+ *   Rating: 2
  */
 int leastBitPos(int x) {
-  return 2;
+  /**
+   * x and -x share same least significant bits until least significant 1 bit (inclusive)
+   * and all other bits reverse of each other.
+   * Ex: x = 0b11100010000 and -x = 0b00011110000
+   */
+
+  return x & (~x + 1);
 }
 /* 
  * replaceByte(x,n,c) - Replace byte n in x with c
@@ -195,7 +205,12 @@ int leastBitPos(int x) {
  *   Rating: 3
  */
 int replaceByte(int x, int n, int c) {
-  return x & (0x00 << n);
+  /**
+   * zero out n-th byte and then write c there using |
+   */
+
+  int shift = n << 3;
+  return (x & ~(0xFF << shift)) | (c << shift);
 }
 /* 
  * bang - Compute !x without using !
@@ -205,7 +220,13 @@ int replaceByte(int x, int n, int c) {
  *   Rating: 4 
  */
 int bang(int x) {
-  return 2;
+  /**
+   * Fact: x = 0 is the only number such that both itself (x) and
+   * its negative (-x) are non-negative (sign-bit off).
+   * Utilize this fact and sign bits to achieve bang.
+   */
+
+  return ((x >> 31) | ((~x + 1) >> 31)) + 1;
 }
 /*
  * leftBitCount - returns count of number of consective 1's in
@@ -216,7 +237,42 @@ int bang(int x) {
  *   Rating: 4
  */
 int leftBitCount(int x) {
-  return 2;
+  /**
+   * Use following algorithm similar to dynamic programming/knapsack problem.
+   * For n in 16, 8, 4, 2, 1:
+   *   Check if leftmost n bits are all 1.
+   *   If so add n to total and right-shift x n places.
+   *   (That is, remove first n bits. Move remaining bits to right.)
+   * Do the above for n = 1, for the case when all 32 bits are 1.
+   */
+  int tot = 0;
+  int cur = 0;
+  int xx = x;
+
+  cur = !(~(xx >> 16)) << 4; // 16 or 0 (depending on whether first 16 bits are all 1s)
+  tot = cur; // add cur to tot
+  xx = xx << cur; // remove first cur bits of 1s
+
+  cur = !(~(xx >> 24)) << 3;
+  tot += cur;
+  xx = xx << cur;
+
+  cur = !(~(xx >> 28)) << 2;
+  tot += cur;
+  xx = xx << cur;
+
+  cur = !(~(xx >> 30)) << 1;
+  tot += cur;
+  xx = xx << cur;
+
+  cur = !(~(xx >> 31));
+  tot += cur;
+  xx = xx << cur;
+
+  cur = !(~(xx >> 31));
+  tot += cur;
+
+  return tot;
 }
 /* 
  * TMax - return maximum two's complement integer 
@@ -225,7 +281,11 @@ int leftBitCount(int x) {
  *   Rating: 1
  */
 int tmax(void) {
-  return 2;
+  /**
+   * Turn all bits to 1, then flip the sign bit.
+   */
+
+  return (~0) ^ (1 << 31);
 }
 /* 
  * implication - return x -> y in propositional logic - 0 for false, 1
@@ -237,7 +297,11 @@ int tmax(void) {
  *   Rating: 2
  */
 int implication(int x, int y) {
-    return 2;
+  /**
+   * x -> y = ~x | y
+   */
+  
+  return (!x) | (!!y);
 }
 /* 
  * negate - return -x 
@@ -247,7 +311,11 @@ int implication(int x, int y) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  /**
+   * Use standard algorithm: flip all bits and add 1.
+   */
+
+  return ~x + 1;
 }
 /* 
  * conditional - same as x ? y : z 
@@ -257,7 +325,13 @@ int negate(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+  /**
+   * Turn x into 0x00000000 or 0xffffffff accordingly.
+   * Then using x and ~x choose one of y and z.
+   */
+  
+  x = (x >> 31) | ((~x+1) >> 31);
+  return (x & y) | (~x & z);
 }
 /* 
  * addOK - Determine if can compute x+y without overflow
@@ -268,7 +342,19 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int addOK(int x, int y) {
-  return 2;
+  /**
+   * Overflow doesn't happen, that is, adding is OK iff:
+   * 1) sign(x) != sign(y)
+   * OR
+   * 2) sign(x) == sign(y) == sign(x+y)
+   */
+
+  int signx = (x >> 31) + 1; // 0 neg, 1 non-neg
+  int signy = (y >> 31) + 1;
+  int xaddy = x + y;
+  int signa = (xaddy >> 31) + 1;
+
+  return (signx ^ signy) | !(signy ^ signa);
 }
 /* 
  * isGreater - if x > y  then return 1, else return 0 
@@ -278,7 +364,21 @@ int addOK(int x, int y) {
  *   Rating: 3
  */
 int isGreater(int x, int y) {
-  return 2;
+  /**
+   * x greater than y iff:
+   * 1) x >= 0 > y
+   * OR
+   * 2) y >= 0 > x doesn't hold AND
+   *    x - y is non-negative AND
+   *    x - y is not zero
+   */
+
+  int signx = (x >> 31) + 1; // 0 neg, 1 non-neg
+  int signy = (y >> 31) + 1;
+  int xsuby = x + (~y + 1);
+  int signs = (xsuby >> 31) + 1;
+
+  return (signx & (!signy)) | ((!((!signx) & signy)) & signs & (!!xsuby));
 }
 /*
  * satMul3 - multiplies by 3, saturating to Tmin or Tmax if overflow
@@ -292,7 +392,25 @@ int isGreater(int x, int y) {
  *  Rating: 3
  */
 int satMul3(int x) {
-    return 2;
+  /**
+   * Break 3*x to two steps: 2*x and 2*x + x.
+   * Check if overflow happens in each step.
+   * Saturate appropriately in case of overflow.
+   */
+  int tmin = 1 << 31;
+  int tmax = ~tmin;
+
+  int signx = x >> 31; // neg 0xFFFFFFFF, non-neg 0x00000000
+
+  int x2 = x << 1; // x*2
+  int sign2 = x2 >> 31;
+
+  int x3 = x2 + x; // x*2 + x = x*3
+  int sign3 = x3 >> 31;
+
+  int overf = (signx ^ sign2) | (sign2 ^ sign3); // overflow 0xFFFFFFFF, otherwise 0x00000000
+
+  return (~overf & x3) | (overf & ((signx & tmin) | (~signx & tmax)));
 }
 /* 
  * float_abs - Return bit-level equivalent of absolute value of f for
@@ -306,7 +424,18 @@ int satMul3(int x) {
  *   Rating: 2
  */
 unsigned float_abs(unsigned uf) {
-  return 2;
+  /**
+   * Turn sign-bit off to get abs_uf.
+   * If abs_uf is bigger than or equal to smallest "positive" NaN, return argument back.
+   */
+
+  unsigned abs_uf = uf & 0x7FFFFFFF;
+  unsigned justBelowNaN = 0x7F800000;
+
+  if (abs_uf > justBelowNaN) // uf is NaN
+    return uf;
+
+  return abs_uf;
 }
 /* 
  * float_f2i - Return bit-level equivalent of expression (int) f
@@ -321,5 +450,39 @@ unsigned float_abs(unsigned uf) {
  *   Rating: 4
  */
 int float_f2i(unsigned uf) {
-  return 2;
+  // get individual parts
+  unsigned sign = uf >> 31;
+  unsigned exp = (uf >> 23) & 0xFF;
+  unsigned frac = (uf & 0x7FFFFF);
+  unsigned bias = 0x7F;
+  unsigned res = frac;
+  
+  // NaN or inf
+  if (exp == 0xFF)
+    return 0x80000000u;
+  
+  // denormalized
+  if (exp < bias)
+    return 0x0;
+  
+  exp -= bias;
+  
+  // out of range
+  if (exp >= 31)
+    return 0x80000000u;
+  
+  // convert frac to int
+  if (exp > 22)
+    res = frac << (exp - 23);
+  else
+    res = frac >> (23 - exp);
+
+  // add implied 1
+  res += 1 << exp;
+  
+  // change sign appropriately
+  if (sign)
+    res = -res;
+  
+  return res;
 }
