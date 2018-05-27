@@ -1,7 +1,7 @@
 /* 
  * CS:APP Data Lab 
  * 
- * Silap Aliyev (20160844) seeeelup@kaist.ac.kr
+ * Silap Aliyev (seeeelup@kaist.ac.kr)
  * 
  * bits.c - Source file with your solutions to the Lab.
  *          This is the file you will hand in to your instructor.
